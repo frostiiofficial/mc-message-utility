@@ -74,6 +74,17 @@ const convertSegment = (text: string): string => {
             }
         }
 
+        if (character === "\\") {
+            const escapedCharacter = text[index + 1] ?? "";
+            const unicodeEscape =
+                escapedCharacter.toLowerCase() === "u" &&
+                /^[0-9a-f]{4}$/i.test(text.slice(index + 2, index + 6));
+            const escapeLength = unicodeEscape ? 6 : 2;
+            result += text.slice(index, index + escapeLength);
+            index += escapeLength;
+            continue;
+        }
+
         result += smallCapsMap[character.toLowerCase()] ?? character;
         index += 1;
     }

@@ -2,6 +2,8 @@ import {
     Boxes,
     Copy,
     GitFork,
+    PanelRightClose,
+    PanelRightOpen,
     SmilePlus,
     Upload,
     WandSparkles,
@@ -16,6 +18,8 @@ interface NavBarProps {
     onStripEmojis: () => void;
     onCopy: () => void;
     onFileSelected: (file: File) => void;
+    isStructureVisible: boolean;
+    onToggleStructure: () => void;
 }
 
 const NavBar = ({
@@ -25,10 +29,12 @@ const NavBar = ({
     onStripEmojis,
     onCopy,
     onFileSelected,
+    isStructureVisible,
+    onToggleStructure,
 }: NavBarProps) => {
     const fileInput = useRef<HTMLInputElement>(null);
     return (
-        <div className="flex flex-wrap items-center gap-3 border-b border-b-zinc-700 bg-zinc-900 p-3">
+        <div className="flex flex-wrap items-center gap-3 border-b border-b-zinc-700 bg-zinc-800 p-3">
             <Boxes size={32} />
             <div className="min-w-0">
                 <div className="flex items-center gap-2">
@@ -98,6 +104,18 @@ const NavBar = ({
                         ))}
                     </select>
                 </label>
+                <button
+                    type="button"
+                    onClick={onToggleStructure}
+                    aria-label={`${isStructureVisible ? "Hide" : "Show"} structure view`}
+                    title={`${isStructureVisible ? "Hide" : "Show"} structure view`}
+                    className="flex h-10 w-10 items-center justify-center rounded-md border border-zinc-600 text-zinc-200 transition-colors hover:border-blue-500 hover:bg-blue-500/10 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                    {isStructureVisible ? (
+                        <PanelRightClose size={17} />
+                    ) : (
+                        <PanelRightOpen size={17} />
+                    )}
+                </button>
                 <a
                     href="#"
                     className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-200">

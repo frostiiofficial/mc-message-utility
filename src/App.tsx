@@ -1,6 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 import { LoaderCircle } from "lucide-react";
-import { Group, Panel, Separator } from "react-resizable-panels";
+import {
+    Group,
+    Panel,
+    Separator,
+    type PanelImperativeHandle,
+} from "react-resizable-panels";
 import CodeEditor, { type CodeEditorHandle } from "./components/CodeEditor";
 import NavBar from "./components/NavBar";
 import StructureView from "./components/StructureView";
@@ -37,6 +42,7 @@ const AppContent = () => {
     const [language, setLanguage] = useState(savedSession?.language ?? "yaml");
     const [content, setContent] = useState(savedSession?.content ?? "");
     const [isProcessing, setIsProcessing] = useState(false);
+    const [isStructureVisible, setIsStructureVisible] = useState(true);
     const [treeSelection, setTreeSelection] = useState<{
         signature: string;
         paths: Set<string>;
@@ -45,6 +51,7 @@ const AppContent = () => {
         paths: new Set(savedSession?.treeSelection.paths ?? []),
     });
     const editorRef = useRef<CodeEditorHandle>(null);
+    const structurePanelRef = useRef<PanelImperativeHandle>(null);
     const { showToast } = useToast();
     const structure = parseStructure(content, language);
     const structureSignature = structure.fields
@@ -159,9 +166,18 @@ const AppContent = () => {
                 onStripEmojis={handleStripEmojis}
                 onCopy={handleCopy}
                 onFileSelected={handleFileSelected}
+                isStructureVisible={isStructureVisible}
+                onToggleStructure={() => {
+                    if (isStructureVisible) {
+                        structurePanelRef.current?.collapse();
+                    } else {
+                        structurePanelRef.current?.expand();
+                    }
+                    setIsStructureVisible((visible) => !visible);
+                }}
             />
             <Group className="min-h-0 min-w-0 flex-1">
-                <Panel defaultSize="50%" minSize="300px" className="min-w-0">
+                <Panel defaultSize="50%" minSize="400px" className="min-w-0">
                     <CodeEditor
                         ref={editorRef}
                         language={language}
@@ -170,7 +186,13 @@ const AppContent = () => {
                     />
                 </Panel>
                 <Separator className="bg-zinc-700 hover:bg-zinc-600 w-1.5 duration-300" />
-                <Panel defaultSize="50%" minSize="300px" className="min-w-0">
+                <Panel
+                    panelRef={structurePanelRef}
+                    defaultSize="50%"
+                    minSize="400px"
+                    collapsedSize="0%"
+                    collapsible
+                    className="min-w-0">
                     <StructureView
                         fields={structure.fields}
                         error={structure.error}
