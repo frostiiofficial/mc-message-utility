@@ -158,7 +158,7 @@ const AppContent = () => {
     };
 
     return (
-        <div className="flex h-screen min-h-0 w-full min-w-0 flex-col overflow-hidden">
+        <div className="flex h-screen min-h-0 w-full min-w-0 flex-col overflow-hidden [overflow-anchor:none]">
             <NavBar
                 language={language}
                 onLanguageChange={setLanguage}

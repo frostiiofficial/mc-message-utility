@@ -12,6 +12,17 @@ body {
     scrollbar-width: thin;
 }
 
+.tree-node-content {
+    container: tree-node / inline-size;
+}
+
+@container tree-node (max-width: 520px) {
+    .tree-node-value {
+        flex-basis: 100%;
+        width: 100%;
+    }
+}
+
 ::-webkit-scrollbar {
     width: 10px;
     height: 10px;

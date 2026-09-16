@@ -23,6 +23,8 @@ interface TreeNode {
     path: string;
     label: string;
     value?: string;
+    isArray?: boolean;
+    isObject?: boolean;
     children: TreeNode[];
 }
 
@@ -60,6 +62,19 @@ const buildTree = (fields: StructureField[]) => {
         });
     });
 
+    const markArrays = (nodes: TreeNode[]) => {
+        nodes.forEach((node) => {
+            node.isArray =
+                node.value === "[]" ||
+                (node.children.length > 0 &&
+                    node.children.every((child) => /^\d+$/.test(child.label)));
+            node.isObject = node.children.length > 0 && !node.isArray;
+            markArrays(node.children);
+        });
+    };
+
+    markArrays(roots);
+
     return roots;
 };
 
@@ -95,7 +110,7 @@ const TreeRow = ({
     return (
         <div className="min-w-full">
             <div
-            className="flex min-h-9 min-w-full items-start gap-1 px-2 transition-colors duration-200 hover:bg-zinc-800/70"
+            className="flex min-h-9 min-w-full items-center gap-1 rounded-md px-2 transition-colors duration-200 hover:bg-zinc-800/70"
                 style={{ paddingLeft: `${depth * 1.25}rem` }}>
                 {hasChildren ? (
                     <button
@@ -114,7 +129,12 @@ const TreeRow = ({
                 ) : (
                     <span className="h-5 w-5 shrink-0" aria-hidden="true" />
                 )}
-                <label className="flex min-w-0 flex-1 cursor-pointer items-start gap-2 py-1">
+                <div
+                    role="checkbox"
+                    aria-checked={partiallyChecked ? "mixed" : checked}
+                    tabIndex={-1}
+                    onClick={() => onToggleChecked(node)}
+                    className="tree-node-content flex min-w-0 flex-1 cursor-pointer items-center gap-2 py-1">
                     <span
                         className={`pointer-events-none flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
                             checked || partiallyChecked
@@ -124,24 +144,27 @@ const TreeRow = ({
                         {checked && <Check size={12} />}
                         {partiallyChecked && <Minus size={12} />}
                     </span>
-                    <input
-                        type="checkbox"
-                        checked={checked}
-                        aria-checked={partiallyChecked ? "mixed" : checked}
-                        onChange={() => onToggleChecked(node)}
-                        className="sr-only"
-                    />
                     <span className="flex min-w-0 flex-1 flex-wrap items-baseline gap-1">
                         <span className="shrink-0 text-sm text-zinc-200">
                             {node.label}:
                         </span>
+                        {node.isArray && (
+                            <span className="shrink-0 rounded border border-emerald-500/50 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-emerald-400">
+                                array
+                            </span>
+                        )}
+                        {node.isObject && (
+                            <span className="shrink-0 rounded border border-sky-500/50 bg-sky-500/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-sky-400">
+                                object
+                            </span>
+                        )}
                         {node.value !== undefined && (
-                            <span className="min-w-0 break-words text-xs text-zinc-500">
+                            <span className="tree-node-value min-w-0 flex-1 basis-0 wrap-break-word rounded-md border border-zinc-800 bg-zinc-950/40 px-2 py-1 text-xs text-zinc-500">
                                 {`${node.value}`}
                             </span>
                         )}
                     </span>
-                </label>
+                </div>
             </div>
             {hasChildren && (
                 <div
@@ -236,7 +259,7 @@ const StructureView = ({
     }
 
     return (
-        <div className="h-full w-full min-w-0 overflow-x-auto overflow-y-auto bg-zinc-900 p-4">
+        <div className="h-full w-full min-w-0 overflow-x-auto overflow-y-auto [overflow-anchor:none] bg-zinc-900 p-4">
             <div className="mb-3 flex flex-wrap items-center gap-2">
                 <div className="mr-auto flex items-center gap-2">
                     <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
