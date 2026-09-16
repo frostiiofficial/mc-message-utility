@@ -14,7 +14,9 @@ import { parseStructure } from "./utils/parse-structure";
 import {
     convertContentValues,
     convertSelectedValues,
+    defaultConversionRules,
     stripEmojis,
+    type ConversionRules,
 } from "./utils/smallCaps";
 
 const sessionStorageKey = "mc-message-utility-session";
@@ -43,6 +45,9 @@ const AppContent = () => {
     const [content, setContent] = useState(savedSession?.content ?? "");
     const [isProcessing, setIsProcessing] = useState(false);
     const [isStructureVisible, setIsStructureVisible] = useState(true);
+    const [conversionRules, setConversionRules] = useState<ConversionRules>(
+        defaultConversionRules,
+    );
     const [treeSelection, setTreeSelection] = useState<{
         signature: string;
         paths: Set<string>;
@@ -90,10 +95,10 @@ const AppContent = () => {
             const selectedText = editor?.getSelectedText() ?? "";
             if (selectedText) {
                 editor?.replaceSelectedText(
-                    convertSelectedValues(selectedText, language),
+                    convertSelectedValues(selectedText, language, conversionRules),
                 );
             } else {
-                setContent(convertSelectedValues(content, language));
+                setContent(convertSelectedValues(content, language, conversionRules));
             }
             showToast("Values converted.", "success");
         } finally {
@@ -116,6 +121,7 @@ const AppContent = () => {
                     language,
                     structure.fields,
                     selectedTreePaths,
+                    conversionRules,
                 ),
             );
             showToast("Selected values converted.", "success");
@@ -171,6 +177,8 @@ const AppContent = () => {
                 onFileSelected={handleFileSelected}
                 isStructureVisible={isStructureVisible}
                 isStructureAvailable={!isPlainText}
+                conversionRules={conversionRules}
+                onConversionRulesChange={setConversionRules}
                 onToggleStructure={() => {
                     if (isStructureVisible) {
                         structurePanelRef.current?.collapse();

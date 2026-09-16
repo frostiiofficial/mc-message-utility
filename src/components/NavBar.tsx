@@ -7,9 +7,11 @@ import {
     SmilePlus,
     Upload,
     WandSparkles,
+    Settings2,
 } from "lucide-react";
 import { useRef } from "react";
 import { languages } from "../data/Language";
+import type { ConversionRules } from "../utils/smallCaps";
 
 interface NavBarProps {
     language: string;
@@ -20,6 +22,8 @@ interface NavBarProps {
     onFileSelected: (file: File) => void;
     isStructureVisible: boolean;
     isStructureAvailable: boolean;
+    conversionRules: ConversionRules;
+    onConversionRulesChange: (rules: ConversionRules) => void;
     onToggleStructure: () => void;
 }
 
@@ -32,6 +36,8 @@ const NavBar = ({
     onFileSelected,
     isStructureVisible,
     isStructureAvailable,
+    conversionRules,
+    onConversionRulesChange,
     onToggleStructure,
 }: NavBarProps) => {
     const fileInput = useRef<HTMLInputElement>(null);
@@ -69,6 +75,42 @@ const NavBar = ({
                     <Copy size={17} />
                     Copy
                 </button>
+                <details className="relative">
+                    <summary className="flex h-10 cursor-pointer list-none items-center justify-center gap-2 rounded-md border border-zinc-600 px-3 text-sm font-medium text-zinc-200 transition-colors hover:border-blue-500 hover:bg-blue-500/10 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        <Settings2 size={17} />
+                        Rules
+                    </summary>
+                    <div className="absolute right-0 top-12 z-20 w-64 rounded-md border border-zinc-700 bg-zinc-800 p-3 shadow-xl">
+                        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-zinc-400">
+                            Preserve inside
+                        </p>
+                        {([
+                            ["colorCodes", "Minecraft color codes"],
+                            ["angleBrackets", "Angle brackets <...>"],
+                            ["curlyBraces", "Curly braces {...}"],
+                            ["percentTokens", "Percent tokens %...%"],
+                            ["squareBrackets", "Square brackets [...]"],
+                            ["escapes", "Escaped characters"],
+                        ] as const).map(([rule, label]) => (
+                            <label
+                                key={rule}
+                                className="flex cursor-pointer items-center gap-2 py-1.5 text-sm text-zinc-200">
+                                <input
+                                    type="checkbox"
+                                    checked={conversionRules[rule]}
+                                    onChange={(event) =>
+                                        onConversionRulesChange({
+                                            ...conversionRules,
+                                            [rule]: event.target.checked,
+                                        })
+                                    }
+                                    className="accent-blue-500"
+                                />
+                                {label}
+                            </label>
+                        ))}
+                    </div>
+                </details>
                 <button
                     type="button"
                     onClick={() => fileInput.current?.click()}

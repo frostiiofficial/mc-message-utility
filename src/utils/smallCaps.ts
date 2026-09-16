@@ -30,7 +30,28 @@ const smallCapsMap: Record<string, string> = {
 const findClosing = (text: string, start: number, closing: string) =>
     text.indexOf(closing, start + 1);
 
-const convertSegment = (text: string): string => {
+export interface ConversionRules {
+    colorCodes: boolean;
+    angleBrackets: boolean;
+    curlyBraces: boolean;
+    percentTokens: boolean;
+    squareBrackets: boolean;
+    escapes: boolean;
+}
+
+export const defaultConversionRules: ConversionRules = {
+    colorCodes: true,
+    angleBrackets: true,
+    curlyBraces: true,
+    percentTokens: true,
+    squareBrackets: true,
+    escapes: true,
+};
+
+const convertSegment = (
+    text: string,
+    rules: ConversionRules = defaultConversionRules,
+): string => {
     let result = "";
     let index = 0;
 
@@ -38,6 +59,7 @@ const convertSegment = (text: string): string => {
         const character = text[index];
 
         if (
+            rules.colorCodes &&
             (character === "&" || character === "§") &&
             /[0-9a-fk-or]/i.test(text[index + 1] ?? "")
         ) {
@@ -46,18 +68,18 @@ const convertSegment = (text: string): string => {
             continue;
         }
 
-        if (character === "<") {
+        if (rules.angleBrackets && character === "<") {
             const closingIndex = findClosing(text, index, ">");
             if (closingIndex !== -1) {
                 const inner = text.slice(index + 1, closingIndex);
-                const isReplacementRule = inner.includes("|") || inner.includes("/");
-                result += `<${isReplacementRule ? convertSegment(inner) : inner}>`;
+                const isReplacementRule = inner.includes("/");
+                result += `<${isReplacementRule ? convertSegment(inner, rules) : inner}>`;
                 index = closingIndex + 1;
                 continue;
             }
         }
 
-        if (character === "{") {
+        if (rules.curlyBraces && character === "{") {
             const closingIndex = findClosing(text, index, "}");
             if (closingIndex !== -1) {
                 result += text.slice(index, closingIndex + 1);
@@ -66,7 +88,7 @@ const convertSegment = (text: string): string => {
             }
         }
 
-        if (character === "%") {
+        if (rules.percentTokens && character === "%") {
             const closingIndex = findClosing(text, index, "%");
             if (closingIndex !== -1) {
                 result += text.slice(index, closingIndex + 1);
@@ -75,7 +97,7 @@ const convertSegment = (text: string): string => {
             }
         }
 
-        if (character === "\\") {
+        if (rules.escapes && character === "\\") {
             const escapedCharacter = text[index + 1] ?? "";
             const unicodeEscape =
                 escapedCharacter.toLowerCase() === "u" &&
@@ -86,6 +108,15 @@ const convertSegment = (text: string): string => {
             continue;
         }
 
+        if (rules.squareBrackets && character === "[") {
+            const closingIndex = findClosing(text, index, "]");
+            if (closingIndex !== -1) {
+                result += text.slice(index, closingIndex + 1);
+                index = closingIndex + 1;
+                continue;
+            }
+        }
+
         result += smallCapsMap[character.toLowerCase()] ?? character;
         index += 1;
     }
@@ -93,7 +124,10 @@ const convertSegment = (text: string): string => {
     return result;
 };
 
-export const convertToSmallCaps = (text: string) => convertSegment(text);
+export const convertToSmallCaps = (
+    text: string,
+    rules: ConversionRules = defaultConversionRules,
+) => convertSegment(text, rules);
 
 const emojiPattern =
     /[\u{1F000}-\u{1FAFF}]|\p{Extended_Pictographic}|\p{Emoji_Presentation}|[\u{1F3FB}-\u{1F3FF}]|[\u{2190}-\u{21FF}\u{2300}-\u{23FF}\u{2460}-\u{24FF}\u{2500}-\u{27BF}\u{2B00}-\u{2BFF}\u{3030}\u{303D}\u{3297}\u{3299}]|[\u{FE0E}\u{FE0F}\u{200D}]/gu;
@@ -146,7 +180,10 @@ export const stripContentEmojis = (
     return result;
 };
 
-const convertJsonValues = (text: string) => {
+const convertJsonValues = (
+    text: string,
+    rules: ConversionRules = defaultConversionRules,
+) => {
     let result = "";
     let index = 0;
 
@@ -174,7 +211,7 @@ const convertJsonValues = (text: string) => {
         if (text[next] === ":") {
             result += rawValue;
         } else {
-            result += `"${convertSegment(rawValue.slice(1, -1))}"`;
+            result += `"${convertSegment(rawValue.slice(1, -1), rules)}"`;
         }
         index = end + 1;
     }
@@ -185,13 +222,14 @@ const convertJsonValues = (text: string) => {
 export const convertSelectedValues = (
     text: string,
     language: string,
+    rules: ConversionRules = defaultConversionRules,
 ): string => {
     if (language === "plaintext") {
-        return convertToSmallCaps(text);
+        return convertToSmallCaps(text, rules);
     }
 
     if (language === "json") {
-        return convertJsonValues(text);
+        return convertJsonValues(text, rules);
     }
 
     const lines = text.split(/(\r?\n)/);
@@ -208,10 +246,10 @@ export const convertSelectedValues = (
             ? line.search(/[=:]/)
             : line.search(/:/);
         if (separator < 1) {
-            return convertToSmallCaps(line);
+            return convertToSmallCaps(line, rules);
         }
 
-        return `${line.slice(0, separator + 1)}${convertToSmallCaps(line.slice(separator + 1))}`;
+        return `${line.slice(0, separator + 1)}${convertToSmallCaps(line.slice(separator + 1), rules)}`;
     });
 
     return converted.join("");
@@ -225,17 +263,18 @@ export const convertContentValues = (
     language: string,
     fields: readonly { path: string; value: string }[],
     selectedPaths: ReadonlySet<string>,
+    rules: ConversionRules = defaultConversionRules,
 ) => {
     const selectedFields = fields.filter((field) => selectedPaths.has(field.path));
     if (selectedFields.length === 0) return content;
     if (selectedFields.length === fields.length) {
-        return convertSelectedValues(content, language);
+        return convertSelectedValues(content, language, rules);
     }
 
     let result = content;
     selectedFields.forEach((field) => {
         const key = field.path.split(".").at(-1) ?? field.path;
-        const value = convertToSmallCaps(field.value);
+        const value = convertToSmallCaps(field.value, rules);
         const escapedKey = escapeRegExp(key);
 
         if (language === "json") {
@@ -255,7 +294,7 @@ export const convertContentValues = (
             "gm",
         );
         result = result.replace(pattern, (_match, prefix, rawValue) =>
-            `${prefix}${convertToSmallCaps(rawValue)}`,
+            `${prefix}${convertToSmallCaps(rawValue, rules)}`,
         );
     });
 
