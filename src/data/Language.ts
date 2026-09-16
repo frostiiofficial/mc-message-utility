@@ -1,5 +1,6 @@
 import {
     FileCode,
+    FileText,
     Braces,
     SlidersHorizontal,
     type LucideIcon,
@@ -13,6 +14,12 @@ export interface LanguageOption {
 }
 
 export const languages: LanguageOption[] = [
+    {
+        id: "text",
+        label: "Plain Text",
+        monacoLanguage: "plaintext",
+        icon: FileText,
+    },
     {
         id: "yaml",
         label: "YAML",

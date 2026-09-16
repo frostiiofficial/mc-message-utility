@@ -53,6 +53,7 @@ const AppContent = () => {
     const editorRef = useRef<CodeEditorHandle>(null);
     const structurePanelRef = useRef<PanelImperativeHandle>(null);
     const { showToast } = useToast();
+    const isPlainText = language === "plaintext";
     const structure = parseStructure(content, language);
     const structureSignature = structure.fields
         .map((field) => field.path)
@@ -146,7 +147,9 @@ const AppContent = () => {
     const handleFileSelected = async (file: File) => {
         const extension = file.name.split(".").pop()?.toLowerCase();
         const nextLanguage =
-            extension === "json"
+                        extension === "txt"
+                                ? "plaintext"
+                                : extension === "json"
                 ? "json"
                 : extension === "properties" || extension === "props" || extension === "ini"
                   ? "ini"
@@ -167,6 +170,7 @@ const AppContent = () => {
                 onCopy={handleCopy}
                 onFileSelected={handleFileSelected}
                 isStructureVisible={isStructureVisible}
+                isStructureAvailable={!isPlainText}
                 onToggleStructure={() => {
                     if (isStructureVisible) {
                         structurePanelRef.current?.collapse();
@@ -177,7 +181,10 @@ const AppContent = () => {
                 }}
             />
             <Group className="min-h-0 min-w-0 flex-1">
-                <Panel defaultSize="50%" minSize="400px" className="min-w-0">
+                <Panel
+                    defaultSize={isPlainText ? "100%" : "50%"}
+                    minSize="400px"
+                    className="min-w-0">
                     <CodeEditor
                         ref={editorRef}
                         language={language}
@@ -185,27 +192,31 @@ const AppContent = () => {
                         onChange={setContent}
                     />
                 </Panel>
-                <Separator className="bg-zinc-700 hover:bg-zinc-600 w-1.5 duration-300" />
-                <Panel
-                    panelRef={structurePanelRef}
-                    defaultSize="50%"
-                    minSize="400px"
-                    collapsedSize="0%"
-                    collapsible
-                    className="min-w-0">
-                    <StructureView
-                        fields={structure.fields}
-                        error={structure.error}
-                        checkedPaths={selectedTreePaths}
-                        onConvert={handleStructureConvert}
-                        onCheckedPathsChange={(paths) =>
-                            setTreeSelection({
-                                signature: structureSignature,
-                                paths: new Set(paths),
-                            })
-                        }
-                    />
-                </Panel>
+                {!isPlainText && (
+                    <>
+                        <Separator className="bg-zinc-700 hover:bg-zinc-600 w-1.5 duration-300" />
+                        <Panel
+                            panelRef={structurePanelRef}
+                            defaultSize="50%"
+                            minSize="400px"
+                            collapsedSize="0%"
+                            collapsible
+                            className="min-w-0">
+                            <StructureView
+                                fields={structure.fields}
+                                error={structure.error}
+                                checkedPaths={selectedTreePaths}
+                                onConvert={handleStructureConvert}
+                                onCheckedPathsChange={(paths) =>
+                                    setTreeSelection({
+                                        signature: structureSignature,
+                                        paths: new Set(paths),
+                                    })
+                                }
+                            />
+                        </Panel>
+                    </>
+                )}
             </Group>
             {isProcessing && (
                 <div className="animate-loading-fade fixed inset-0 z-60 flex flex-col items-center justify-center gap-3 bg-zinc-950/80 text-zinc-200 backdrop-blur-sm">

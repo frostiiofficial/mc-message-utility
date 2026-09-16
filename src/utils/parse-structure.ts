@@ -135,6 +135,10 @@ export const parseStructure = (
     content: string,
     language: string,
 ): StructureResult => {
+    if (language === "plaintext") {
+        return { fields: [], error: null };
+    }
+
     if (language === "json") {
         return parseJson(content);
     }

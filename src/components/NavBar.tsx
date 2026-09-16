@@ -19,6 +19,7 @@ interface NavBarProps {
     onCopy: () => void;
     onFileSelected: (file: File) => void;
     isStructureVisible: boolean;
+    isStructureAvailable: boolean;
     onToggleStructure: () => void;
 }
 
@@ -30,6 +31,7 @@ const NavBar = ({
     onCopy,
     onFileSelected,
     isStructureVisible,
+    isStructureAvailable,
     onToggleStructure,
 }: NavBarProps) => {
     const fileInput = useRef<HTMLInputElement>(null);
@@ -77,7 +79,7 @@ const NavBar = ({
                 <input
                     ref={fileInput}
                     type="file"
-                    accept=".yml,.yaml,.json,.properties,.props,.ini"
+                    accept=".txt,.yml,.yaml,.json,.properties,.props,.ini"
                     className="hidden"
                     onChange={(event) => {
                         const file = event.target.files?.[0];
@@ -104,18 +106,20 @@ const NavBar = ({
                         ))}
                     </select>
                 </label>
-                <button
-                    type="button"
-                    onClick={onToggleStructure}
-                    aria-label={`${isStructureVisible ? "Hide" : "Show"} structure view`}
-                    title={`${isStructureVisible ? "Hide" : "Show"} structure view`}
-                    className="flex h-10 w-10 items-center justify-center rounded-md border border-zinc-600 text-zinc-200 transition-colors hover:border-blue-500 hover:bg-blue-500/10 focus:outline-none focus:ring-2 focus:ring-blue-400">
-                    {isStructureVisible ? (
-                        <PanelRightClose size={17} />
-                    ) : (
-                        <PanelRightOpen size={17} />
-                    )}
-                </button>
+                {isStructureAvailable && (
+                    <button
+                        type="button"
+                        onClick={onToggleStructure}
+                        aria-label={`${isStructureVisible ? "Hide" : "Show"} structure view`}
+                        title={`${isStructureVisible ? "Hide" : "Show"} structure view`}
+                        className="flex h-10 w-10 items-center justify-center rounded-md border border-zinc-600 text-zinc-200 transition-colors hover:border-blue-500 hover:bg-blue-500/10 focus:outline-none focus:ring-2 focus:ring-blue-400">
+                        {isStructureVisible ? (
+                            <PanelRightClose size={17} />
+                        ) : (
+                            <PanelRightOpen size={17} />
+                        )}
+                    </button>
+                )}
                 <a
                     href="#"
                     className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-200">

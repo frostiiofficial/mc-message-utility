@@ -4,7 +4,7 @@ body {
     margin: 0;
     padding: 0;
     font-family: "Nunito", sans-serif;
-    @apply bg-zinc-950 text-white max-h-screen overflow-hidden;
+    @apply bg-zinc-900 text-white max-h-screen overflow-hidden;
 }
 
 * {

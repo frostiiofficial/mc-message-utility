@@ -50,7 +50,8 @@ const convertSegment = (text: string): string => {
             const closingIndex = findClosing(text, index, ">");
             if (closingIndex !== -1) {
                 const inner = text.slice(index + 1, closingIndex);
-                result += `<${inner.includes("|") ? convertSegment(inner) : inner}>`;
+                const isReplacementRule = inner.includes("|") || inner.includes("/");
+                result += `<${isReplacementRule ? convertSegment(inner) : inner}>`;
                 index = closingIndex + 1;
                 continue;
             }
@@ -185,6 +186,10 @@ export const convertSelectedValues = (
     text: string,
     language: string,
 ): string => {
+    if (language === "plaintext") {
+        return convertToSmallCaps(text);
+    }
+
     if (language === "json") {
         return convertJsonValues(text);
     }
