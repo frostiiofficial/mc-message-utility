@@ -93,9 +93,9 @@ const TreeRow = ({
     const expanded = !collapsed.has(node.path);
 
     return (
-        <div className="min-w-0 max-w-full">
+        <div className="w-max min-w-full">
             <div
-            className="flex min-w-0 max-w-full min-h-9 items-center gap-1 rounded-md px-2 transition-colors duration-200 hover:bg-zinc-800/70"
+            className="flex min-h-9 w-max min-w-full items-center gap-1 px-2 transition-colors duration-200 hover:bg-zinc-800/70"
                 style={{ paddingLeft: `${depth * 1.25 + 0.5}rem` }}>
                 {hasChildren ? (
                     <button
@@ -114,7 +114,7 @@ const TreeRow = ({
                 ) : (
                     <span className="h-5 w-5 shrink-0" aria-hidden="true" />
                 )}
-                <label className="flex min-w-0 flex-1 cursor-pointer items-center gap-2 py-1">
+                <label className="flex w-max min-w-0 cursor-pointer items-center gap-2 py-1">
                     <span
                         className={`pointer-events-none flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
                             checked || partiallyChecked
@@ -131,13 +131,13 @@ const TreeRow = ({
                         onChange={() => onToggleChecked(node)}
                         className="sr-only"
                     />
-                    <span className="flex min-w-0 max-w-full items-baseline gap-0">
+                    <span className="flex w-max items-baseline gap-1 whitespace-nowrap">
                         <span className="shrink-0 text-sm text-zinc-200">
                             {node.label}:
                         </span>
                         {node.value !== undefined && (
-                            <span className="min-w-0 max-w-[60%] truncate text-xs text-zinc-500">
-                                {` ${node.value}`}
+                            <span className="text-xs text-zinc-500">
+                                {`${node.value}`}
                             </span>
                         )}
                     </span>
@@ -151,7 +151,7 @@ const TreeRow = ({
                             ? "grid-rows-[1fr] opacity-100"
                             : "grid-rows-[0fr] opacity-0"
                     }`}>
-                    <div className="min-h-0 min-w-0 max-w-full space-y-1 overflow-hidden pt-1">
+                    <div className="min-h-0 w-max min-w-full space-y-1 overflow-hidden pt-1">
                         {node.children.map((child) => (
                             <TreeRow
                                 key={child.path}
@@ -236,7 +236,7 @@ const StructureView = ({
     }
 
     return (
-        <div className="h-full w-full min-w-0 overflow-x-hidden overflow-y-auto bg-zinc-900 p-4">
+        <div className="h-full w-full min-w-0 overflow-x-auto overflow-y-auto bg-zinc-900 p-4">
             <div className="mb-3 flex flex-wrap items-center gap-2">
                 <div className="mr-auto flex items-center gap-2">
                     <h2 className="text-sm font-semibold uppercase tracking-wide text-zinc-400">
@@ -278,7 +278,7 @@ const StructureView = ({
             {tree.length === 0 ? (
                 <p className="text-sm text-zinc-500">No fields found</p>
             ) : (
-                <div className="min-w-0 max-w-full space-y-1 overflow-hidden rounded-lg border border-zinc-800 bg-zinc-950/20 p-2 shadow-inner shadow-black/10">
+                <div className="w-max min-w-full space-y-1">
                     {tree.map((node) => (
                         <TreeRow
                             key={node.path}

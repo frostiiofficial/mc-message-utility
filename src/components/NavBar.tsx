@@ -1,4 +1,11 @@
-import { Boxes, Copy, SmilePlus, Upload, WandSparkles } from "lucide-react";
+import {
+    Boxes,
+    Copy,
+    GitFork,
+    SmilePlus,
+    Upload,
+    WandSparkles,
+} from "lucide-react";
 import { useRef } from "react";
 import { languages } from "../data/Language";
 
@@ -30,7 +37,7 @@ const NavBar = ({
                         BETA
                     </span>
                 </div>
-                <h4 className="text-sm font-light">FrostiiDev</h4>
+                <h4 className="text-sm font-light">FrostiiOffical</h4>
             </div>
             <div className="ml-auto flex flex-wrap items-center gap-3">
                 <button
@@ -91,6 +98,12 @@ const NavBar = ({
                         ))}
                     </select>
                 </label>
+                <a
+                    href="#"
+                    className="flex items-center gap-1 text-sm text-zinc-400 hover:text-zinc-200">
+                    <GitFork size={16} />
+                    <span className="underline">Report a bug</span>
+                </a>
             </div>
         </div>
     );

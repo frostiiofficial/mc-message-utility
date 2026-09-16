@@ -161,7 +161,7 @@ const AppContent = () => {
                 onFileSelected={handleFileSelected}
             />
             <Group className="min-h-0 min-w-0 flex-1">
-                <Panel defaultSize="50%" minSize={0} className="min-w-0">
+                <Panel defaultSize="50%" minSize="300px" className="min-w-0">
                     <CodeEditor
                         ref={editorRef}
                         language={language}
@@ -170,7 +170,7 @@ const AppContent = () => {
                     />
                 </Panel>
                 <Separator className="bg-zinc-700 hover:bg-zinc-600 w-1.5 duration-300" />
-                <Panel defaultSize="50%" minSize={0} className="min-w-0">
+                <Panel defaultSize="50%" minSize="300px" className="min-w-0">
                     <StructureView
                         fields={structure.fields}
                         error={structure.error}
