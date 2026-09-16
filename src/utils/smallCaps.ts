@@ -30,6 +30,9 @@ const smallCapsMap: Record<string, string> = {
 const findClosing = (text: string, start: number, closing: string) =>
     text.indexOf(closing, start + 1);
 
+const gradientRulePattern =
+    /<gradient:[^>\r\n]*>|gradient:(?:#[^:\s>]+(?::#[^:\s>]+)+)/giu;
+
 export interface ConversionRules {
     colorCodes: boolean;
     angleBrackets: boolean;
@@ -52,66 +55,69 @@ const convertSegment = (
     text: string,
     rules: ConversionRules = defaultConversionRules,
 ): string => {
+    const preservedGradients: string[] = [];
+    const protectedText = text.replace(gradientRulePattern, (gradient) => {
+        preservedGradients.push(gradient);
+        return `\uE200${preservedGradients.length - 1}\uE201`;
+    });
     let result = "";
     let index = 0;
 
-    while (index < text.length) {
-        const character = text[index];
+    while (index < protectedText.length) {
+        const character = protectedText[index];
 
         if (
             rules.colorCodes &&
             (character === "&" || character === "§") &&
-            /[0-9a-fk-or]/i.test(text[index + 1] ?? "")
+            /[0-9a-fk-or]/i.test(protectedText[index + 1] ?? "")
         ) {
-            result += text.slice(index, index + 2);
+            result += protectedText.slice(index, index + 2);
             index += 2;
             continue;
         }
 
-        if (rules.angleBrackets && character === "<") {
-            const closingIndex = findClosing(text, index, ">");
+        if (character === "<") {
+            const closingIndex = findClosing(protectedText, index, ">");
             if (closingIndex !== -1) {
-                const inner = text.slice(index + 1, closingIndex);
-                const isReplacementRule = inner.includes("/");
-                result += `<${isReplacementRule ? convertSegment(inner, rules) : inner}>`;
+                result += protectedText.slice(index, closingIndex + 1);
                 index = closingIndex + 1;
                 continue;
             }
         }
 
         if (rules.curlyBraces && character === "{") {
-            const closingIndex = findClosing(text, index, "}");
+                const closingIndex = findClosing(protectedText, index, "}");
             if (closingIndex !== -1) {
-                result += text.slice(index, closingIndex + 1);
+                result += protectedText.slice(index, closingIndex + 1);
                 index = closingIndex + 1;
                 continue;
             }
         }
 
         if (rules.percentTokens && character === "%") {
-            const closingIndex = findClosing(text, index, "%");
+            const closingIndex = findClosing(protectedText, index, "%");
             if (closingIndex !== -1) {
-                result += text.slice(index, closingIndex + 1);
+                result += protectedText.slice(index, closingIndex + 1);
                 index = closingIndex + 1;
                 continue;
             }
         }
 
         if (rules.escapes && character === "\\") {
-            const escapedCharacter = text[index + 1] ?? "";
+            const escapedCharacter = protectedText[index + 1] ?? "";
             const unicodeEscape =
                 escapedCharacter.toLowerCase() === "u" &&
-                /^[0-9a-f]{4}$/i.test(text.slice(index + 2, index + 6));
+                /^[0-9a-f]{4}$/i.test(protectedText.slice(index + 2, index + 6));
             const escapeLength = unicodeEscape ? 6 : 2;
-            result += text.slice(index, index + escapeLength);
+            result += protectedText.slice(index, index + escapeLength);
             index += escapeLength;
             continue;
         }
 
         if (rules.squareBrackets && character === "[") {
-            const closingIndex = findClosing(text, index, "]");
+            const closingIndex = findClosing(protectedText, index, "]");
             if (closingIndex !== -1) {
-                result += text.slice(index, closingIndex + 1);
+                result += protectedText.slice(index, closingIndex + 1);
                 index = closingIndex + 1;
                 continue;
             }
@@ -121,7 +127,10 @@ const convertSegment = (
         index += 1;
     }
 
-    return result;
+    return result.replace(
+        /\uE200(\d+)\uE201/g,
+        (_match, gradientIndex: string) => preservedGradients[Number(gradientIndex)],
+    );
 };
 
 export const convertToSmallCaps = (
@@ -219,6 +228,38 @@ const convertJsonValues = (
     return result;
 };
 
+const findValueSeparator = (line: string, language: string) => {
+    const separators = language === "ini" ? "=:" : ":";
+    let index = 0;
+
+    while (index < line.length) {
+        const character = line[index];
+        const closingCharacter =
+            character === "<"
+                ? ">"
+                : character === "{"
+                  ? "}"
+                  : character === "["
+                    ? "]"
+                    : character === "%"
+                      ? "%"
+                      : null;
+
+        if (closingCharacter) {
+            const closingIndex = findClosing(line, index, closingCharacter);
+            if (closingIndex !== -1) {
+                index = closingIndex + 1;
+                continue;
+            }
+        }
+
+        if (separators.includes(character)) return index;
+        index += 1;
+    }
+
+    return -1;
+};
+
 export const convertSelectedValues = (
     text: string,
     language: string,
@@ -242,9 +283,7 @@ export const convertSelectedValues = (
             (language === "ini" && trimmed.startsWith("!"));
         if (isComment) return line;
 
-        const separator = language === "ini"
-            ? line.search(/[=:]/)
-            : line.search(/:/);
+        const separator = findValueSeparator(line, language);
         if (separator < 1) {
             return convertToSmallCaps(line, rules);
         }
