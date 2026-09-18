@@ -27,8 +27,26 @@ const smallCapsMap: Record<string, string> = {
     z: "ᴢ",
 };
 
-const findClosing = (text: string, start: number, closing: string) =>
-    text.indexOf(closing, start + 1);
+const findClosing = (
+    text: string,
+    start: number,
+    opening: string,
+    closing: string,
+) => {
+    if (opening === closing) return text.indexOf(closing, start + 1);
+
+    let depth = 0;
+    for (let index = start; index < text.length; index += 1) {
+        if (text[index] === opening) {
+            depth += 1;
+        } else if (text[index] === closing) {
+            depth -= 1;
+            if (depth === 0) return index;
+        }
+    }
+
+    return -1;
+};
 
 const gradientRulePattern =
     /<gradient:[^>\r\n]*>|gradient:(?:#[^:\s>]+(?::#[^:\s>]+)+)/giu;
@@ -76,8 +94,8 @@ const convertSegment = (
             continue;
         }
 
-        if (character === "<") {
-            const closingIndex = findClosing(protectedText, index, ">");
+        if (rules.angleBrackets && character === "<") {
+            const closingIndex = findClosing(protectedText, index, "<", ">");
             if (closingIndex !== -1) {
                 result += protectedText.slice(index, closingIndex + 1);
                 index = closingIndex + 1;
@@ -86,7 +104,7 @@ const convertSegment = (
         }
 
         if (rules.curlyBraces && character === "{") {
-                const closingIndex = findClosing(protectedText, index, "}");
+            const closingIndex = findClosing(protectedText, index, "{", "}");
             if (closingIndex !== -1) {
                 result += protectedText.slice(index, closingIndex + 1);
                 index = closingIndex + 1;
@@ -95,7 +113,7 @@ const convertSegment = (
         }
 
         if (rules.percentTokens && character === "%") {
-            const closingIndex = findClosing(protectedText, index, "%");
+            const closingIndex = findClosing(protectedText, index, "%", "%");
             if (closingIndex !== -1) {
                 result += protectedText.slice(index, closingIndex + 1);
                 index = closingIndex + 1;
@@ -115,7 +133,7 @@ const convertSegment = (
         }
 
         if (rules.squareBrackets && character === "[") {
-            const closingIndex = findClosing(protectedText, index, "]");
+            const closingIndex = findClosing(protectedText, index, "[", "]");
             if (closingIndex !== -1) {
                 result += protectedText.slice(index, closingIndex + 1);
                 index = closingIndex + 1;
@@ -246,7 +264,12 @@ const findValueSeparator = (line: string, language: string) => {
                       : null;
 
         if (closingCharacter) {
-            const closingIndex = findClosing(line, index, closingCharacter);
+            const closingIndex = findClosing(
+                line,
+                index,
+                character,
+                closingCharacter,
+            );
             if (closingIndex !== -1) {
                 index = closingIndex + 1;
                 continue;
@@ -297,6 +320,69 @@ export const convertSelectedValues = (
 const escapeRegExp = (value: string) =>
     value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
+const replaceNextStructuredValue = (
+    content: string,
+    rawValue: string,
+    convertedValue: string,
+    searchStart: number,
+) => {
+    if (!rawValue || rawValue === "[]" || rawValue === "{}") {
+        return { content, nextSearchStart: searchStart };
+    }
+
+    const pattern = new RegExp(
+        `(^|[=:]\\s*|-\\s*)(["']?)${escapeRegExp(rawValue)}\\2(?=\\s*(?:#.*)?$)`,
+        "gm",
+    );
+    pattern.lastIndex = searchStart;
+    const match = pattern.exec(content);
+    if (!match || match.index === undefined) {
+        return { content, nextSearchStart: searchStart };
+    }
+
+    const quote = match[2] ?? "";
+    const replacement = `${match[1]}${quote}${convertedValue}${quote}`;
+    const nextContent =
+        content.slice(0, match.index) +
+        replacement +
+        content.slice(match.index + match[0].length);
+
+    return {
+        content: nextContent,
+        nextSearchStart: match.index + replacement.length,
+    };
+};
+
+const replaceNextJsonValue = (
+    content: string,
+    rawValue: string,
+    convertedValue: string,
+    searchStart: number,
+) => {
+    const serializedValue = JSON.stringify(rawValue);
+    const serializedReplacement = JSON.stringify(convertedValue);
+    const pattern = new RegExp(
+        `(^|[\\[,:]\\s*)${escapeRegExp(serializedValue)}(?=\\s*[,}\\]])`,
+        "gm",
+    );
+    pattern.lastIndex = searchStart;
+    const match = pattern.exec(content);
+    if (!match || match.index === undefined) {
+        return { content, nextSearchStart: searchStart };
+    }
+
+    const replacement = `${match[1]}${serializedReplacement}`;
+    const nextContent =
+        content.slice(0, match.index) +
+        replacement +
+        content.slice(match.index + match[0].length);
+
+    return {
+        content: nextContent,
+        nextSearchStart: match.index + replacement.length,
+    };
+};
+
 export const convertContentValues = (
     content: string,
     language: string,
@@ -311,30 +397,30 @@ export const convertContentValues = (
     }
 
     let result = content;
+    let searchStart = 0;
     selectedFields.forEach((field) => {
-        const key = field.path.split(".").at(-1) ?? field.path;
         const value = convertToSmallCaps(field.value, rules);
-        const escapedKey = escapeRegExp(key);
 
         if (language === "json") {
-            const pattern = new RegExp(
-                `(\\"${escapedKey}\\"\\s*:\\s*\\")([^\\"]*)(\\")`,
-                "g",
+            const replacement = replaceNextJsonValue(
+                result,
+                field.value,
+                value,
+                searchStart,
             );
-            result = result.replace(pattern, (_match, prefix, _rawValue, suffix) =>
-                `${prefix}${value}${suffix}`,
-            );
+            result = replacement.content;
+            searchStart = replacement.nextSearchStart;
             return;
         }
 
-        const separator = language === "ini" ? "[=:]" : ":";
-        const pattern = new RegExp(
-            `(\\s*${escapedKey}\\s*${separator}\\s*)(.*)$`,
-            "gm",
+        const replacement = replaceNextStructuredValue(
+            result,
+            field.value,
+            value,
+            searchStart,
         );
-        result = result.replace(pattern, (_match, prefix, rawValue) =>
-            `${prefix}${convertToSmallCaps(rawValue, rules)}`,
-        );
+        result = replacement.content;
+        searchStart = replacement.nextSearchStart;
     });
 
     return result;

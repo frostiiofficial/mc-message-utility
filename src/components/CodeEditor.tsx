@@ -1,6 +1,11 @@
 import { Editor } from "@monaco-editor/react";
 import type { editor as MonacoEditor } from "monaco-editor";
-import { forwardRef, useImperativeHandle, useRef } from "react";
+import {
+    forwardRef,
+    useEffect,
+    useImperativeHandle,
+    useRef,
+} from "react";
 
 export interface CodeEditorHandle {
     getSelectedText: () => string;
@@ -17,6 +22,20 @@ interface CodeEditorProps {
 const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(
     ({ language, value, onChange }, ref) => {
         const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
+
+        useEffect(() => {
+            const editor = editorRef.current;
+            const model = editor?.getModel();
+            if (!editor || !model || model.getValue() === value) return;
+
+            editor.executeEdits("mc-message-utility-external", [
+                {
+                    range: model.getFullModelRange(),
+                    text: value,
+                    forceMoveMarkers: true,
+                },
+            ]);
+        }, [value]);
 
         useImperativeHandle(ref, () => ({
             getSelectedText: () => {
@@ -50,7 +69,7 @@ const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(
         <div className="relative h-full w-full overflow-hidden">
             <Editor
                 language={language}
-                value={value}
+                defaultValue={value}
                 onChange={(nextValue) => onChange(nextValue ?? "")}
                 height="100%"
                 width="100%"
