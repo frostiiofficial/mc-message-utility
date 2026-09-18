@@ -51,6 +51,12 @@ const findClosing = (
 const gradientRulePattern =
     /<gradient:[^>\r\n]*>|gradient:(?:#[^:\s>]+(?::#[^:\s>]+)+)/giu;
 
+const colorCodePattern =
+    /(?:[&§](?:[0-9a-fk-or]|#(?:[0-9a-f]{6}|[0-9a-f]{3})|x(?:[&§][0-9a-f]){6})|&#(?:[0-9a-f]{6}|[0-9a-f]{3}))(?:;)?/giu;
+
+const urlPattern =
+    /(?:https?:\/\/|www\.)[^\s<>{}\[\]()]*(?:\?[^\s<>{}\[\]()]*)?(?:#[^\s<>{}\[\]()]*)?|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s<>{}\[\]()]*)?(?:\?[^\s<>{}\[\]()]*)?(?:#[^\s<>{}\[\]()]*)?/giu;
+
 export interface ConversionRules {
     colorCodes: boolean;
     angleBrackets: boolean;
@@ -74,24 +80,34 @@ const convertSegment = (
     rules: ConversionRules = defaultConversionRules,
 ): string => {
     const preservedGradients: string[] = [];
-    const protectedText = text.replace(gradientRulePattern, (gradient) => {
-        preservedGradients.push(gradient);
-        return `\uE200${preservedGradients.length - 1}\uE201`;
-    });
+    const preservedUrls: string[] = [];
+    const protectedText = text
+        .replace(gradientRulePattern, (gradient) => {
+            preservedGradients.push(gradient);
+            return `\uE200${preservedGradients.length - 1}\uE201`;
+        })
+        .replace(urlPattern, (url) => {
+            preservedUrls.push(url);
+            return `\uE300${preservedUrls.length - 1}\uE301`;
+        });
     let result = "";
     let index = 0;
 
     while (index < protectedText.length) {
         const character = protectedText[index];
 
-        if (
-            rules.colorCodes &&
-            (character === "&" || character === "§") &&
-            /[0-9a-fk-or]/i.test(protectedText[index + 1] ?? "")
-        ) {
-            result += protectedText.slice(index, index + 2);
-            index += 2;
-            continue;
+        if (rules.colorCodes && (character === "&" || character === "§")) {
+            const colorCodeMatch = protectedText
+                .slice(index)
+                .match(
+                    /^(?:[&§](?:[0-9a-fk-or]|#(?:[0-9a-f]{6}|[0-9a-f]{3})|x(?:[&§][0-9a-f]){6})|&#(?:[0-9a-f]{6}|[0-9a-f]{3}))(?:;)?/i,
+                );
+
+            if (colorCodeMatch) {
+                result += colorCodeMatch[0];
+                index += colorCodeMatch[0].length;
+                continue;
+            }
         }
 
         if (rules.angleBrackets && character === "<") {
@@ -145,10 +161,16 @@ const convertSegment = (
         index += 1;
     }
 
-    return result.replace(
-        /\uE200(\d+)\uE201/g,
-        (_match, gradientIndex: string) => preservedGradients[Number(gradientIndex)],
-    );
+    return result
+        .replace(
+            /\uE200(\d+)\uE201/g,
+            (_match, gradientIndex: string) =>
+                preservedGradients[Number(gradientIndex)],
+        )
+        .replace(
+            /\uE300(\d+)\uE301/g,
+            (_match, urlIndex: string) => preservedUrls[Number(urlIndex)],
+        );
 };
 
 export const convertToSmallCaps = (
@@ -161,23 +183,31 @@ const emojiPattern =
 
 const protectMinecraftSyntax = (text: string) => {
     const protectedTokens: string[] = [];
-    const protectedText = text.replace(
-        /(?:[&§][0-9a-fk-or])|(?:<[^>]*>)|(?:\{[^{}\r\n]*\})|(?:%[^%]*%)/giu,
-        (token) => {
-            protectedTokens.push(token);
-            return `\uE100${protectedTokens.length - 1}\uE101`;
-        },
-    );
+    const protectedText = text
+        .replace(
+            /(?:[&§](?:[0-9a-fk-or]|#(?:[0-9a-f]{6}|[0-9a-f]{3})|x(?:[&§][0-9a-f]){6})|&#(?:[0-9a-f]{6}|[0-9a-f]{3}))(?:;)?|(?:<[^>]*>)|(?:\{[^{}\r\n]*\})|(?:%[^%]*%)/giu,
+            (token) => {
+                protectedTokens.push(token);
+                return `\uE100${protectedTokens.length - 1}\uE101`;
+            },
+        )
+        .replace(urlPattern, (url) => {
+            protectedTokens.push(url);
+            return `\uE110${protectedTokens.length - 1}\uE111`;
+        });
 
     return { protectedText, protectedTokens };
 };
 
 export const stripEmojis = (text: string) => {
     const { protectedText, protectedTokens } = protectMinecraftSyntax(text);
-    return protectedText.replace(emojiPattern, "").replace(
-        /\uE100(\d+)\uE101/g,
-        (_match, index: string) => protectedTokens[Number(index)],
-    );
+    return protectedText
+        .replace(emojiPattern, "")
+        .replace(
+            /\uE100(\d+)\uE101|\uE110(\d+)\uE111/g,
+            (_match, minecraftIndex: string, urlIndex: string) =>
+                protectedTokens[Number(minecraftIndex ?? urlIndex)],
+        );
 };
 
 export const stripContentEmojis = (
@@ -207,12 +237,16 @@ export const stripContentEmojis = (
     return result;
 };
 
+const isMaterialFieldName = (key: string) =>
+    key.split(".").at(-1)?.trim().toLowerCase() === "material";
+
 const convertJsonValues = (
     text: string,
     rules: ConversionRules = defaultConversionRules,
 ) => {
     let result = "";
     let index = 0;
+    let lastPropertyKey: string | null = null;
 
     while (index < text.length) {
         if (text[index] !== '"') {
@@ -236,10 +270,24 @@ const convertJsonValues = (
         while (/\s/.test(text[next] ?? "")) next += 1;
 
         if (text[next] === ":") {
+            try {
+                lastPropertyKey = JSON.parse(rawValue);
+            } catch {
+                lastPropertyKey = rawValue.slice(1, -1);
+            }
             result += rawValue;
-        } else {
-            result += `"${convertSegment(rawValue.slice(1, -1), rules)}"`;
+            index = end + 1;
+            continue;
         }
+
+        const valueText = rawValue.slice(1, -1);
+        const isMaterialJsonKey =
+            lastPropertyKey !== null && isMaterialFieldName(lastPropertyKey);
+
+        result += isMaterialJsonKey
+            ? rawValue
+            : `"${convertSegment(valueText, rules)}"`;
+        lastPropertyKey = null;
         index = end + 1;
     }
 
@@ -276,7 +324,19 @@ const findValueSeparator = (line: string, language: string) => {
             }
         }
 
-        if (separators.includes(character)) return index;
+        if (separators.includes(character)) {
+            const left = line.slice(0, index).trim();
+            const looksLikeColorizedText =
+                /(?:[&§]|&#|<gradient:|\{|\[|%)/.test(left) &&
+                /(?:[&§]|&#)/.test(left);
+
+            if (looksLikeColorizedText) {
+                index += 1;
+                continue;
+            }
+
+            return index;
+        }
         index += 1;
     }
 
@@ -309,6 +369,14 @@ export const convertSelectedValues = (
         const separator = findValueSeparator(line, language);
         if (separator < 1) {
             return convertToSmallCaps(line, rules);
+        }
+
+        const keyText = line.slice(0, separator).trim();
+        const keyName = keyText.replace(/[\[\]]/g, "").trim();
+        const isMaterialValue = isMaterialFieldName(keyName);
+
+        if (isMaterialValue) {
+            return line;
         }
 
         return `${line.slice(0, separator + 1)}${convertToSmallCaps(line.slice(separator + 1), rules)}`;
@@ -399,7 +467,9 @@ export const convertContentValues = (
     let result = content;
     let searchStart = 0;
     selectedFields.forEach((field) => {
-        const value = convertToSmallCaps(field.value, rules);
+        const value = isMaterialFieldName(field.path)
+            ? field.value
+            : convertToSmallCaps(field.value, rules);
 
         if (language === "json") {
             const replacement = replaceNextJsonValue(
