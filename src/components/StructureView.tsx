@@ -34,7 +34,7 @@ interface TreeRowProps {
     collapsed: Set<string>;
     checkedFields: ReadonlySet<string>;
     onToggleExpanded: (path: string) => void;
-    onToggleChecked: (node: TreeNode) => void;
+    onToggleChecked: (node: TreeNode, ctrlKey: boolean) => void;
 }
 
 const buildTree = (fields: StructureField[]) => {
@@ -90,6 +90,12 @@ const getBranchPaths = (nodes: TreeNode[]): string[] =>
             : [],
     );
 
+const getNodesWithLabel = (nodes: TreeNode[], label: string): TreeNode[] =>
+    nodes.flatMap((node) => [
+        ...(node.label === label ? [node] : []),
+        ...getNodesWithLabel(node.children, label),
+    ]);
+
 const TreeRow = ({
     node,
     depth,
@@ -133,7 +139,9 @@ const TreeRow = ({
                     role="checkbox"
                     aria-checked={partiallyChecked ? "mixed" : checked}
                     tabIndex={-1}
-                    onClick={() => onToggleChecked(node)}
+                    onClick={(event) =>
+                        onToggleChecked(node, event.ctrlKey)
+                    }
                     className="tree-node-content flex min-w-0 flex-1 cursor-pointer items-center gap-2 py-1">
                     <span
                         className={`pointer-events-none flex h-4 w-4 shrink-0 items-center justify-center rounded border ${
@@ -221,8 +229,10 @@ const StructureView = ({
         });
     };
 
-    const toggleChecked = (node: TreeNode) => {
-        const paths = getDescendantPaths(node);
+    const toggleChecked = (node: TreeNode, ctrlKey: boolean) => {
+        const paths = ctrlKey
+            ? getNodesWithLabel(tree, node.label).flatMap(getDescendantPaths)
+            : getDescendantPaths(node);
         const next = new Set(checkedFields);
         const shouldCheck = paths.some((path) => !next.has(path));
 
