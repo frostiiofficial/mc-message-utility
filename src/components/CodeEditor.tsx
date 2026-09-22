@@ -22,19 +22,65 @@ interface CodeEditorProps {
 const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(
     ({ language, value, onChange }, ref) => {
         const editorRef = useRef<MonacoEditor.IStandaloneCodeEditor | null>(null);
+        const applyingExternalValue = useRef(false);
+        const latestEditorValue = useRef(value);
+        const hasPendingLocalChange = useRef(false);
 
         useEffect(() => {
             const editor = editorRef.current;
             const model = editor?.getModel();
-            if (!editor || !model || model.getValue() === value) return;
+            if (!editor || !model) return;
 
-            editor.executeEdits("mc-message-utility-external", [
-                {
-                    range: model.getFullModelRange(),
-                    text: value,
-                    forceMoveMarkers: true,
-                },
-            ]);
+            const currentValue = model.getValue();
+            if (currentValue === value) {
+                hasPendingLocalChange.current = false;
+                return;
+            }
+            if (
+                hasPendingLocalChange.current &&
+                latestEditorValue.current === currentValue
+            ) {
+                return;
+            }
+
+            const selections = editor.getSelections()?.map((selection) => ({
+                start: model.getOffsetAt(selection.getStartPosition()),
+                end: model.getOffsetAt(selection.getEndPosition()),
+            }));
+
+            applyingExternalValue.current = true;
+            try {
+                editor.executeEdits("mc-message-utility-external", [
+                    {
+                        range: model.getFullModelRange(),
+                        text: value,
+                        forceMoveMarkers: true,
+                    },
+                ]);
+            } finally {
+                applyingExternalValue.current = false;
+            }
+            latestEditorValue.current = value;
+            hasPendingLocalChange.current = false;
+
+            if (selections) {
+                editor.setSelections(
+                    selections.map(({ start, end }) => ({
+                        selectionStartLineNumber: model.getPositionAt(
+                            Math.min(start, value.length),
+                        ).lineNumber,
+                        selectionStartColumn: model.getPositionAt(
+                            Math.min(start, value.length),
+                        ).column,
+                        positionLineNumber: model.getPositionAt(
+                            Math.min(end, value.length),
+                        ).lineNumber,
+                        positionColumn: model.getPositionAt(
+                            Math.min(end, value.length),
+                        ).column,
+                    })),
+                );
+            }
         }, [value]);
 
         useImperativeHandle(ref, () => ({
@@ -70,7 +116,14 @@ const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(
             <Editor
                 language={language}
                 defaultValue={value}
-                onChange={(nextValue) => onChange(nextValue ?? "")}
+                onChange={(nextValue) => {
+                    if (!applyingExternalValue.current) {
+                        const editorValue = nextValue ?? "";
+                        latestEditorValue.current = editorValue;
+                        hasPendingLocalChange.current = true;
+                        onChange(editorValue);
+                    }
+                }}
                 height="100%"
                 width="100%"
                 theme="vs-dark"
@@ -94,6 +147,8 @@ const CodeEditor = forwardRef<CodeEditorHandle, CodeEditorProps>(
                 }}
                 onMount={(editor) => {
                     editorRef.current = editor;
+                    latestEditorValue.current = editor.getValue();
+                    hasPendingLocalChange.current = false;
                 }}
             />
         </div>

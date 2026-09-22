@@ -51,9 +51,6 @@ const findClosing = (
 const gradientRulePattern =
     /<gradient:[^>\r\n]*>|gradient:(?:#[^:\s>]+(?::#[^:\s>]+)+)/giu;
 
-const colorCodePattern =
-    /(?:[&§](?:[0-9a-fk-or]|#(?:[0-9a-f]{6}|[0-9a-f]{3})|x(?:[&§][0-9a-f]){6})|&#(?:[0-9a-f]{6}|[0-9a-f]{3}))(?:;)?/giu;
-
 const urlPattern =
     /(?:https?:\/\/|www\.)[^\s<>{}\[\]()]*(?:\?[^\s<>{}\[\]()]*)?(?:#[^\s<>{}\[\]()]*)?|(?:[a-z0-9-]+\.)+[a-z]{2,}(?:\/[^\s<>{}\[\]()]*)?(?:\?[^\s<>{}\[\]()]*)?(?:#[^\s<>{}\[\]()]*)?/giu;
 
@@ -398,8 +395,13 @@ const replaceNextStructuredValue = (
         return { content, nextSearchStart: searchStart };
     }
 
+    const valuePattern = rawValue
+        .trim()
+        .split(/\s+/)
+        .map(escapeRegExp)
+        .join("\\s+");
     const pattern = new RegExp(
-        `(^|[=:]\\s*|-\\s*)(["']?)${escapeRegExp(rawValue)}\\2(?=\\s*(?:#.*)?$)`,
+        `(^|[=:]\\s*(?:[>|][-+]?\\s*)?|-\\s*(?:[>|][-+]?\\s*)?)(["']?)${valuePattern}\\2(?=\\s*(?:#.*)?$)`,
         "gm",
     );
     pattern.lastIndex = searchStart;
@@ -429,8 +431,13 @@ const replaceNextJsonValue = (
 ) => {
     const serializedValue = JSON.stringify(rawValue);
     const serializedReplacement = JSON.stringify(convertedValue);
+    const serializedValuePattern = serializedValue
+        .slice(1, -1)
+        .split(" ")
+        .map(escapeRegExp)
+        .join("(?:\\\\r?\\\\n|\\\\n|\\s)+");
     const pattern = new RegExp(
-        `(^|[\\[,:]\\s*)${escapeRegExp(serializedValue)}(?=\\s*[,}\\]])`,
+        `(^|[\\[,:]\\s*)"${serializedValuePattern}"(?=\\s*[,}\\]])`,
         "gm",
     );
     pattern.lastIndex = searchStart;
